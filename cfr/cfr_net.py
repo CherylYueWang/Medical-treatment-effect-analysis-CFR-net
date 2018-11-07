@@ -126,7 +126,7 @@ class cfr_net(object):
         h_rep = h_in[len(h_in)-1]
 
         if FLAGS.normalization == 'divide':
-            h_rep_norm = h_rep / safe_sqrt(tf.reduce_sum(tf.square(h_rep), axis=1, keep_dims=True))
+            h_rep_norm = h_rep / safe_sqrt(tf.reduce_sum(tf.square(h_rep), axis=1, keepdims=True))
         else:
             h_rep_norm = 1.0*h_rep
 
