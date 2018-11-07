@@ -142,8 +142,8 @@ def mmd2_rbf(X,t,p,sig):
 def pdist2sq(X,Y):
     """ Computes the squared Euclidean distance between all pairs x in X, y in Y """
     C = -2*tf.matmul(X,tf.transpose(Y))
-    nx = tf.reduce_sum(tf.square(X),1,keep_dims=True)
-    ny = tf.reduce_sum(tf.square(Y),1,keep_dims=True)
+    nx = tf.reduce_sum(tf.square(X),1,keepdims=True)
+    ny = tf.reduce_sum(tf.square(Y),1,keepdims=True)
     D = (C + tf.transpose(ny)) + nx
     return D
 
