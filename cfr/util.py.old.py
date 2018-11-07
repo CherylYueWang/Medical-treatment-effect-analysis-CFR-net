@@ -1,6 +1,10 @@
 import tensorflow as tf
 import numpy as np
 
+#https://github.com/lmb-freiburg/hand3d/issues/2
+tf.pack = tf.stack
+tf.select = tf.where
+tf.batch_matmul = tf.matmul
 SQRT_CONST = 1e-10
 
 FLAGS = tf.app.flags.FLAGS
@@ -29,8 +33,14 @@ def log(logfile,str):
 
 def save_config(fname):
     """ Save configuration """
+<<<<<<< HEAD
+    #flagdict =  FLAGS.__dict__['__flags']
+    #s = '\n'.join(['%s: %s' % (k,str(flagdict[k])) for k in sorted(flagdict.keys())])
+    s = '\n'.join(['%s: %s' % (k, str(FLAGS[k].value)) for k in sorted(FLAGS)])
+=======
     flagdict = FLAGS.flag_values_dict()
     s = '\n'.join(['%s: %s' % (k,str(flagdict[k])) for k in sorted(flagdict.keys())])
+>>>>>>> origin/master
     f = open(fname,'w')
     f.write(s)
     f.close()
@@ -142,8 +152,8 @@ def mmd2_rbf(X,t,p,sig):
 def pdist2sq(X,Y):
     """ Computes the squared Euclidean distance between all pairs x in X, y in Y """
     C = -2*tf.matmul(X,tf.transpose(Y))
-    nx = tf.reduce_sum(tf.square(X),1,keep_dims=True)
-    ny = tf.reduce_sum(tf.square(Y),1,keep_dims=True)
+    nx = tf.reduce_sum(tf.square(X),1,keepdims=True)
+    ny = tf.reduce_sum(tf.square(Y),1,keepdims=True)
     D = (C + tf.transpose(ny)) + nx
     return D
 
@@ -188,15 +198,24 @@ def wasserstein(X,t,p,lam=10,its=10,sq=False,backpropT=False):
     ''' Compute new distance matrix '''
     Mt = M
     row = delta*tf.ones(tf.shape(M[0:1,:]))
+<<<<<<< HEAD
+    col = tf.concat([delta*tf.ones(tf.shape(M[:,0:1])),tf.zeros((1,1))],0)
+=======
     col = tf.concat([delta*tf.ones(tf.shape(M[:,0:1])),tf.zeros((1,1))], 0)
+>>>>>>> origin/master
     Mt = tf.concat([M,row], 0)
     Mt = tf.concat([Mt,col], 1)
 
     ''' Compute marginal vectors '''
+<<<<<<< HEAD
+    a = tf.concat([p*tf.ones(tf.shape(tf.where(t>0)[:,0:1]))/nt, (1-p)*tf.ones((1,1))],0)
+    b = tf.concat([(1-p)*tf.ones(tf.shape(tf.where(t<1)[:,0:1]))/nc, p*tf.ones((1,1))],0)
+=======
     a = tf.concat([p*tf.ones(tf.shape(tf.where(t>0)[:,0:1]))/nt,
         (1-p)*tf.ones((1,1))], 0)
     b = tf.concat([(1-p)*tf.ones(tf.shape(tf.where(t<1)[:,0:1]))/nc,
         p*tf.ones((1,1))], 0)
+>>>>>>> origin/master
 
     ''' Compute kernel matrix'''
     Mlam = eff_lam*Mt

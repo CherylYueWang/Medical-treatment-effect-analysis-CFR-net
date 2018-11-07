@@ -1,7 +1,29 @@
-# cfrnet
-Counterfactual regression (CFR) by learning balanced representations, as developed by Johansson, Shalit & Sontag (2016) and Shalit, Johansson & Sontag (2016). cfrnet is implemented in Python using TensorFlow 0.12.0-rc1 and NumPy 1.11.3. The code has _not_ been tested with TensorFlow 1.0.
+# For our course project
+It's based on the repo at https://github.com/clinicalml/cfrnet
 
-# Code
+## cfrnet introduction
+Counterfactual regression (CFR) by learning balanced representations, as developed by Johansson, Shalit & Sontag (2016) and Shalit, Johansson & Sontag (2016). 
+cfrnet is originally implemented in Python using TensorFlow 0.12.0-rc1 and NumPy 1.11.3.
+The training code should be compatible with TF1.12.
+
+## Installation
+To install the python dependencies:
+```
+pip install -r requirements.txt
+```
+
+To prepare the data:
+```
+./get_data.sh
+```
+
+To run the example:
+```
+./example_ihdp.sh
+```
+This file runs the model on (a subset of) the IHDP data with parameters supplied by configs/example_ihdp.txt.
+
+## Code
 
 The core components of cfrnet, i.e. the TensorFlow graph, is contained in cfr/cfr_net.py. The training is performed by cfr_net_train.py. The file cfr_param_search.py takes a configuration file as input and allows the user to randomly sample from the supplied parameters (given that there are multiple values given in a list. See configs/example_ihdp.txt for an example.
 
@@ -61,11 +83,11 @@ Example:
 python evaluate.py configs/example_ihdp.txt 0 "{p_alpha: 0}"
 ```
 
-# Examples
+## Examples
 
 A simple experiment example is contained in example_ihdp.sh. This file runs the model on (a subset of) the IHDP data with parameters supplied by configs/example_ihdp.txt. The data for this example can be downloaded from http://www.mit.edu/~fredrikj/files/ihdp_100.tar.gz.
 
-# References
+## References
 Uri Shalit, Fredrik D. Johansson & David Sontag. [Estimating individual treatment effect: generalization bounds and algorithms](https://arxiv.org/abs/1606.03976), 34th International Conference on Machine Learning (ICML), August 2017.
 
 Fredrik D. Johansson, Uri Shalit &  David Sontag. [Learning Representations for Counterfactual Inference](http://jmlr.org/proceedings/papers/v48/johansson16.pdf). 33rd International Conference on Machine Learning (ICML), June 2016.
