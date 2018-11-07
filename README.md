@@ -17,6 +17,12 @@ To prepare the data:
 ./get_data.sh
 ```
 
+To run the example:
+```
+./example_ihdp.sh
+```
+This file runs the model on (a subset of) the IHDP data with parameters supplied by configs/example_ihdp.txt.
+
 ## Code
 
 The core components of cfrnet, i.e. the TensorFlow graph, is contained in cfr/cfr_net.py. The training is performed by cfr_net_train.py. The file cfr_param_search.py takes a configuration file as input and allows the user to randomly sample from the supplied parameters (given that there are multiple values given in a list. See configs/example_ihdp.txt for an example.
