@@ -29,7 +29,7 @@ def log(logfile,str):
 
 def save_config(fname):
     """ Save configuration """
-    flagdict =  FLAGS.__dict__['__flags']
+    flagdict = FLAGS.flag_values_dict()
     s = '\n'.join(['%s: %s' % (k,str(flagdict[k])) for k in sorted(flagdict.keys())])
     f = open(fname,'w')
     f.write(s)
@@ -188,13 +188,15 @@ def wasserstein(X,t,p,lam=10,its=10,sq=False,backpropT=False):
     ''' Compute new distance matrix '''
     Mt = M
     row = delta*tf.ones(tf.shape(M[0:1,:]))
-    col = tf.concat(0,[delta*tf.ones(tf.shape(M[:,0:1])),tf.zeros((1,1))])
-    Mt = tf.concat(0,[M,row])
-    Mt = tf.concat(1,[Mt,col])
+    col = tf.concat([delta*tf.ones(tf.shape(M[:,0:1])),tf.zeros((1,1))], 0)
+    Mt = tf.concat([M,row], 0)
+    Mt = tf.concat([Mt,col], 1)
 
     ''' Compute marginal vectors '''
-    a = tf.concat(0,[p*tf.ones(tf.shape(tf.where(t>0)[:,0:1]))/nt, (1-p)*tf.ones((1,1))])
-    b = tf.concat(0,[(1-p)*tf.ones(tf.shape(tf.where(t<1)[:,0:1]))/nc, p*tf.ones((1,1))])
+    a = tf.concat([p*tf.ones(tf.shape(tf.where(t>0)[:,0:1]))/nt,
+        (1-p)*tf.ones((1,1))], 0)
+    b = tf.concat([(1-p)*tf.ones(tf.shape(tf.where(t<1)[:,0:1]))/nc,
+        p*tf.ones((1,1))], 0)
 
     ''' Compute kernel matrix'''
     Mlam = eff_lam*Mt
