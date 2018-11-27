@@ -215,7 +215,7 @@ def evaluate_cont_ate(predictions, data, i_exp, I_subset=None,
     rmse_cfact = np.sqrt(np.mean(np.square(ycf_p-ycf)))
 
     eff_pred = ycf_p - yf_p;
-    eff_pred[t>0] = -eff_pred[t>0];
+    eff_pred[t>0] = -eff_pred[t>0]
 
     ite_pred = ycf_p - yf
     ite_pred[t>0] = -ite_pred[t>0]

@@ -7,6 +7,7 @@ import datetime
 import traceback
 
 import cfr.cfr_net as cfr
+import cfr.ditou_net as ditou
 from cfr.util import *
 
 ''' Define parameter flags '''
@@ -54,6 +55,8 @@ tf.app.flags.DEFINE_integer('save_rep', 0, """Save representations after trainin
 tf.app.flags.DEFINE_float('val_part', 0, """Validation part. """)
 tf.app.flags.DEFINE_boolean('split_output', 0, """Whether to split output layers between treated and control. """)
 tf.app.flags.DEFINE_boolean('reweight_sample', 1, """Whether to reweight sample for prediction loss with average treatment probability. """)
+# added for DITOU
+tf.app.flags.DEFINE_boolean('use_ditou_net', 0, """Whether to use ditou net. """)
 
 if FLAGS.sparse:
     import scipy.sparse as sparse
@@ -249,6 +252,7 @@ def run(outdir):
     log(logfile,     'Training data: ' + datapath)
     if has_test:
         log(logfile, 'Test data:     ' + datapath_test)
+    #import pdb;pdb.set_trace()
     D = load_data(datapath)
     D_test = None
     if has_test:
@@ -257,7 +261,12 @@ def run(outdir):
     log(logfile, 'Loaded data with shape [%d,%d]' % (D['n'], D['dim']))
 
     ''' Start Session '''
-    sess = tf.Session()
+    #sess = tf.Session()
+    
+    # the following is for gpu
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    sess = tf.Session(config=config)
 
     ''' Initialize input placeholders '''
     x  = tf.placeholder("float", shape=[None, D['dim']], name='x') # Features
@@ -274,7 +283,10 @@ def run(outdir):
     ''' Define model graph '''
     log(logfile, 'Defining graph...\n')
     dims = [D['dim'], FLAGS.dim_in, FLAGS.dim_out]
-    CFR = cfr.cfr_net(x, t, y_, p, FLAGS, r_alpha, r_lambda, do_in, do_out, dims)
+    if not FLAGS.use_ditou_net:
+        CFR = cfr.cfr_net(x, t, y_, p, FLAGS, r_alpha, r_lambda, do_in, do_out, dims)
+    else:
+        CFR = ditou.ditou_net(x, t, y_, p, FLAGS, r_alpha, r_lambda, do_in, do_out, dims)
 
     ''' Set up optimizer '''
     global_step = tf.Variable(0, trainable=False)
@@ -360,6 +372,7 @@ def run(outdir):
                 D_exp_test['HAVE_TRUTH'] = D_test['HAVE_TRUTH']
 
         ''' Split into training and validation sets '''
+        # I_ are indices
         I_train, I_valid = validation_split(D_exp, FLAGS.val_part)
 
         ''' Run training loop '''

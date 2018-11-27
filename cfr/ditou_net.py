@@ -3,12 +3,12 @@ import numpy as np
 
 from util import *
 
-class cfr_net(object):
+class ditou_net(object):
     """
-    cfr_net implements the counterfactual regression neural network
-    by F. Johansson, U. Shalit and D. Sontag: https://arxiv.org/abs/1606.03976
+    ditou_net implements the cfr_net with extra loss on the hidden variables in
+    order to remove the selection bias
 
-    This file contains the class cfr_net as well as helper functions.
+    This file contains the class ditou_net as well as helper functions.
     The network is implemented as a tensorflow graph. The class constructor
     creates an object containing relevant TF nodes as member variables.
     """
@@ -133,7 +133,8 @@ class cfr_net(object):
             h_rep_norm = 1.0*h_rep
 
         ''' Construct ouput layers '''
-        y, weights_out, weights_pred = self._build_output_graph(h_rep_norm, t, dim_in, dim_out, do_out, FLAGS)
+        y, weights_out, weights_pred, x_pred, weights_out2, weights_pred2 = self._build_output_graph(h_rep_norm, t,
+                dim_input, dim_in, dim_out, do_out, FLAGS)
 
         ''' Compute sample reweighting '''
         if FLAGS.reweight_sample:
@@ -209,10 +210,21 @@ class cfr_net(object):
         if FLAGS.p_lambda>0:
             tot_error = tot_error + r_lambda*self.wd_loss
 
-
         if FLAGS.varsel:
             self.w_proj = tf.placeholder("float", shape=[dim_input], name='w_proj')
             self.projection = weights_in[0].assign(self.w_proj)
+
+        recons_err = tf.sqrt(tf.reduce_mean(tf.square(x_pred - x)))
+        tot_error = tot_error + recons_err
+
+        ''' cross cov '''
+        # split in half h_rep_norm
+        #bias_rep = h_rep_norm[:dim_in/2]
+        #cfr_rep = h_rep_norm[dim_in/2:]
+        #term_1 = bias_rep - tf.reduce_mean(bias_rep)
+        #term_2 = cfr_rep - tf.reduce_mean(cfr_rep)
+        #ccov_err = tf.reduce_mean(tf.matmul(term_1,tf.transpose(term_2))) - tf.reduce_mean(term_1) * tf.reduce_mean(term_2)
+        #tot_error = tot_error + ccov_err
 
         self.output = y
         self.tot_loss = tot_error
@@ -262,7 +274,45 @@ class cfr_net(object):
 
         return y, weights_out, weights_pred
 
-    def _build_output_graph(self, rep, t, dim_in, dim_out, do_out, FLAGS):
+    def _build_output_ae(self, h_input, dim_input,  dim_in, dim_out, do_out, FLAGS):
+        h_out = [h_input]
+        dims = [dim_in] + ([dim_out]*FLAGS.n_out)
+
+        weights_out = []; biases_out = []
+
+        for i in range(0, FLAGS.n_out):
+            wo = self._create_variable_with_weight_decay(
+                    tf.random_normal([dims[i], dims[i+1]],
+                        stddev=FLAGS.weight_init/np.sqrt(dims[i])),
+                    'w_out_%d' % i, 1.0)
+            # the following is how the weights are added in the encoder
+            # weights_in.append(tf.Variable(tf.random_normal([dim_in,dim_in], stddev=FLAGS.weight_init/np.sqrt(dim_in))))
+            weights_out.append(wo)
+
+            biases_out.append(tf.Variable(tf.zeros([1,dim_out])))
+            z = tf.matmul(h_out[i], weights_out[i]) + biases_out[i]
+            # No batch norm on output because p_cf != p_f
+
+            h_out.append(self.nonlin(z))
+            h_out[i+1] = tf.nn.dropout(h_out[i+1], do_out)
+
+        weights_pred = self._create_variable(tf.random_normal([dim_out,dim_input],
+            stddev=FLAGS.weight_init/np.sqrt(dim_out)), 'w_pred')
+        bias_pred = self._create_variable(tf.zeros([1,dim_input]), 'b_pred')
+
+        if FLAGS.varsel or FLAGS.n_out == 0:
+            self.wd_loss += tf.nn.l2_loss(tf.slice(weights_pred,[0,0],[dim_out-1,1])) #don't penalize treatment coefficient
+        else:
+            self.wd_loss += tf.nn.l2_loss(weights_pred)
+
+        ''' Construct linear classifier '''
+        h_pred = h_out[-1]
+        y = tf.matmul(h_pred, weights_pred)+bias_pred
+
+        return y, weights_out, weights_pred
+
+
+    def _build_output_graph(self, rep, t, dim_input, dim_in, dim_out, do_out, FLAGS):
         ''' Construct output/regression layers '''
 
         if FLAGS.split_output:
@@ -275,6 +325,7 @@ class cfr_net(object):
 
             y0, weights_out0, weights_pred0 = self._build_output(rep0, dim_in, dim_out, do_out, FLAGS)
             y1, weights_out1, weights_pred1 = self._build_output(rep1, dim_in, dim_out, do_out, FLAGS)
+            x_pred, weights_out2, weights_pred2 = self._build_output_ae(rep, dim_input, dim_in, dim_out, do_out, FLAGS)
 
             y = tf.dynamic_stitch([i0, i1], [y0, y1])
             weights_out = weights_out0 + weights_out1
@@ -284,4 +335,4 @@ class cfr_net(object):
             h_input = tf.concat(1,[rep, t])
             y, weights_out, weights_pred = self._build_output(h_input, dim_in+1, dim_out, do_out, FLAGS)
 
-        return y, weights_out, weights_pred
+        return y, weights_out, weights_pred, x_pred, weights_out2, weights_pred2

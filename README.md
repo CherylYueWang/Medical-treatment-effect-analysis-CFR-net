@@ -23,9 +23,22 @@ To run the example:
 ```
 This file runs the model on (a subset of) the IHDP data with parameters supplied by configs/example_ihdp.txt.
 
+To run an example of our ditou net:
+```
+./ditou_ihdp.sh
+```
+
 ## Code
 
-The core components of cfrnet, i.e. the TensorFlow graph, is contained in cfr/cfr_net.py. The training is performed by cfr_net_train.py. The file cfr_param_search.py takes a configuration file as input and allows the user to randomly sample from the supplied parameters (given that there are multiple values given in a list. See configs/example_ihdp.txt for an example.
+The core components of cfrnet, i.e. the TensorFlow graph, is contained in cfr/cfr_net.py.
+The core components of ditou_net, i.e. the TensorFlow graph, is contained in cfr/ditou_net.py.
+The network can be selected by setting the variable in the config file. 1 for ditou net; 0(default) for cfrnet.
+```
+use_ditou_net=1
+```
+
+The training is performed by cfr_net_train.py. 
+The file cfr_param_search.py takes a configuration file as input and allows the user to randomly sample from the supplied parameters (given that there are multiple values given in a list. See configs/example_ihdp.txt for an example.
 
 A typical experiment uses cfr_param_search.py and evaluate.py as sub-routines. cfr_param_search is best used to randomly search the parameter space. In the output directory, it creates a log of which configurations have been used so far, so that the same experiment is not repeated. evaluate.py goes through the predictions produced by the model and evaluates the error.
 
