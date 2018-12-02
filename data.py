@@ -59,8 +59,7 @@ def gen1(length, feature_num=25, cts_A=True, cts_B=True, cts_C=True):
         a = np.dot([np.average(B), np.average(C)], weights_alpha)
         b = np.dot([np.var(B), np.var(C)], weights_beta)
         yf = np.random.gamma(np.divide(np.square(a), b), np.divide(b, a), 1)
-        ycf = np.random.gamma(np.divide(np.square(a), b)-1, np.divide(b, a), 1) #从图上看我感觉y0的总体的distribution要比y1的更往左边偏一点，我就把alpha减了1,大佬随意
-
+        ycf = np.random.gamma(np.divide(np.square(a), b)-1, np.divide(b, a), 1)
     return [X, t, yf, ycf]
 
 def generate_full_data(sample_size):
@@ -68,20 +67,32 @@ def generate_full_data(sample_size):
     sample_t = []
     sample_yf = []
     sample_ycf = []
+    mu0 = []
+    mu1 = []
     for i in range(sample_size):
         [X, t, yf, ycf] = gen1([10,10,10])
         sample_x.append(X)
         sample_t.append(t)
         sample_yf.append(yf)
         sample_ycf.append(ycf)
+        if t==1:
+            mu1.append(yf)
+            mu0.append(ycf)
+        else:
+            mu1.append(ycf)
+            mu0.append(yf)
 
     sample_x = np.reshape(sample_x, (sample_size, 25, 1))
     sample_t = np.reshape(sample_t, (sample_size, 1))
     sample_yf = np.reshape(sample_yf, (sample_size, 1))
     sample_ycf = np.reshape(sample_ycf, (sample_size, 1))
-    return [sample_x, sample_t, sample_yf, sample_ycf]
+    mu0 = np.reshape(mu0,(sample_size,1))
+    mu1 = np.reshape(mu1,(sample_size,1))
+    return [sample_x, sample_t, sample_yf, sample_ycf, mu0, mu1]
         
 
 
-q = gen1([10,10,10])
-print q
+# q = gen1([10,10,10])
+q = generate_full_data(1000)
+np.savez('./synthetic.npz', x=q[0], t= q[1], yf=q[2], ycf=q[3], mu0=q[4], mu1=q[5])
+#print q
