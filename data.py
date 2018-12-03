@@ -101,6 +101,7 @@ def generate_full_data(sample_size):
 q = generate_full_data(1000)
 np.savez('./synthetic_train.npz', x=q[0], t= q[1], yf=q[2], ycf=q[3], mu0=q[4],
         mu1=q[5], ate=q[6], yadd=q[7], ymul=q[8])
+np.random.seed(1)
 q = generate_full_data(1000)
 np.savez('./synthetic_test.npz', x=q[0], t= q[1], yf=q[2], ycf=q[3], mu0=q[4],
         mu1=q[5], ate=q[6], yadd=q[7], ymul=q[8])
