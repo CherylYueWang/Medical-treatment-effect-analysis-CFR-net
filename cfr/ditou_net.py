@@ -243,8 +243,9 @@ class ditou_net(object):
             bias_rep_zero_mean = bias_rep_new - mean_AD # broadcasting
             cfr_rep_zero_mean = cfr_rep_new - mean_BC
             # the following is an attempt at a faster implementation of xcov
+            N = tf.to_float(tf.shape(bias_rep_zero_mean)[1]) # the number of examples
             xcov_err = 0.5 *tf.reduce_sum(tf.square(tf.matmul(bias_rep_zero_mean,
-                tf.transpose(cfr_rep_zero_mean))))
+                tf.transpose(cfr_rep_zero_mean))/N ))
             tot_error = tot_error + FLAGS.p_xcov * xcov_err
         else:
             xcov_err = tf.constant(0, dtype=tf.float32)
