@@ -1,4 +1,5 @@
 import numpy as np
+np.random.seed(0)
 
 
 def sigmoid(xvec):
@@ -88,11 +89,18 @@ def generate_full_data(sample_size):
     sample_ycf = np.reshape(sample_ycf, (sample_size, 1))
     mu0 = np.reshape(mu0,(sample_size,1))
     mu1 = np.reshape(mu1,(sample_size,1))
-    return [sample_x, sample_t, sample_yf, sample_ycf, mu0, mu1]
-        
+    ate = np.array(4)
+    yadd = np.array(0)
+    ymul = np.array(1)
+    return [sample_x, sample_t, sample_yf, sample_ycf, mu0, mu1, ate, yadd, ymul]
+
 
 
 # q = gen1([10,10,10])
-q = generate_full_data(1000)
-np.savez('./synthetic.npz', x=q[0], t= q[1], yf=q[2], ycf=q[3], mu0=q[4], mu1=q[5])
 #print q
+q = generate_full_data(1000)
+np.savez('./synthetic_train.npz', x=q[0], t= q[1], yf=q[2], ycf=q[3], mu0=q[4],
+        mu1=q[5], ate=q[6], yadd=q[7], ymul=q[8])
+q = generate_full_data(1000)
+np.savez('./synthetic_test.npz', x=q[0], t= q[1], yf=q[2], ycf=q[3], mu0=q[4],
+        mu1=q[5], ate=q[6], yadd=q[7], ymul=q[8])
