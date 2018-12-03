@@ -132,9 +132,17 @@ class ditou_net(object):
         else:
             h_rep_norm = 1.0*h_rep
 
+
+        ''' split the internal layer to AD and BC '''
+        # h_rep dims [batch, features]
+        # AD
+        dims_AD = int(FLAGS.r_A*dim_in)
+        bias_rep = tf.gather(h_rep_norm, tf.range(dims_AD), axis=1)
+        # BC
+        cfr_rep = tf.gather(h_rep_norm, tf.range(dims_AD, dim_in), axis=1)
+
         ''' Construct ouput layers '''
-        y, weights_out, weights_pred, x_pred, weights_out2, weights_pred2 = self._build_output_graph(h_rep_norm, t,
-                dim_input, dim_in, dim_out, do_out, FLAGS)
+        y, weights_out, weights_pred, x_pred, weights_out2, weights_pred2 = self._build_output_graph(h_rep_norm, cfr_rep, t, dim_input, dim_in, dim_out, do_out, FLAGS)
 
         ''' Compute sample reweighting '''
         if FLAGS.reweight_sample:
@@ -214,21 +222,49 @@ class ditou_net(object):
             self.w_proj = tf.placeholder("float", shape=[dim_input], name='w_proj')
             self.projection = weights_in[0].assign(self.w_proj)
 
-        recons_err = tf.sqrt(tf.reduce_mean(tf.square(x_pred - x)))
-        tot_error = tot_error + recons_err
+        ''' Reconstruction error '''
+        if FLAGS.p_recons > 0:
+            recons_err = tf.sqrt(tf.reduce_mean(tf.square(x_pred - x)))
+        else:
+            recons_err = tf.constant(0, dtype=tf.float32)
+        tot_error = tot_error + FLAGS.p_recons * recons_err
 
-        ''' cross cov '''
-        # split in half h_rep_norm
-        #bias_rep = h_rep_norm[:dim_in/2]
-        #cfr_rep = h_rep_norm[dim_in/2:]
-        #term_1 = bias_rep - tf.reduce_mean(bias_rep)
-        #term_2 = cfr_rep - tf.reduce_mean(cfr_rep)
-        #ccov_err = tf.reduce_mean(tf.matmul(term_1,tf.transpose(term_2))) - tf.reduce_mean(term_1) * tf.reduce_mean(term_2)
-        #tot_error = tot_error + ccov_err
+        ''' cross cov over bias_rep(A) and cfr_rep(BC) '''
+        if FLAGS.p_xcov > 0:
+            xcov_err = 0
+            # reshape bias_rep: [batch, 100] -> [100, batch]
+            bias_rep_new = tf.transpose(bias_rep, [1, 0])
+            cfr_rep_new = tf.transpose(cfr_rep, [1, 0])
+            # mean of BC and AD
+            # dims = [100, 1]
+            mean_BC = tf.reduce_mean(bias_rep_new, axis=1, keepdims=True)
+            mean_AD = tf.reduce_mean(cfr_rep_new, axis=1, keepdims=True)
+            # shape=[100, N]
+            bias_rep_zero_mean = bias_rep_new - mean_AD # broadcasting
+            cfr_rep_zero_mean = cfr_rep_new - mean_BC
+            # the following is an attempt at a faster implementation of xcov
+            xcov_err = 0.5 *tf.reduce_sum(tf.square(tf.diag_part(tf.matmul(bias_rep_zero_mean,
+                tf.transpose(cfr_rep_zero_mean)))))
+            tot_error = tot_error + FLAGS.p_xcov * xcov_err
+        else:
+            xcov_err = tf.constant(0, dtype=tf.float32)
+
+        ## The following are the slow implementation
+        #N = tf.shape(h_rep_norm)[0] # the number of examples
+        #N = tf.to_float(N)
+        #elems = (bias_rep_zero_mean, cfr_rep_zero_mean)
+        # a[0], feature_AD_1 of all examples
+        #fn = lambda a:1./N * tf.matmul(tf.reshape(a[0],[1,-1]),tf.reshape(a[1],[-1,1]))
+        #res = tf.map_fn(fn, elems, dtype=tf.float32)
+        #import pdb;pdb.set_trace()
+        #xcov_err = 0.5 * tf.reduce_sum(tf.square(tf.map_fn(fn,elems,dtype=tf.float32, parallel_iterations=10)))
+        #################
 
         self.output = y
         self.tot_loss = tot_error
         self.imb_loss = imb_error
+        self.xcov_loss = FLAGS.p_xcov * xcov_err
+        self.recons_loss = FLAGS.p_recons * recons_err
         self.imb_dist = imb_dist
         self.pred_loss = pred_error
         self.weights_in = weights_in
@@ -238,8 +274,10 @@ class ditou_net(object):
         self.h_rep_norm = h_rep_norm # internal rep after normalization, used in the loss and the decoder layers
 
     def _build_output(self, h_input, dim_in, dim_out, do_out, FLAGS):
+        """ build the decoder branch """
         h_out = [h_input]
-        dims = [dim_in] + ([dim_out]*FLAGS.n_out)
+        # [100, 100, ...]
+        dims = [dim_in - int(FLAGS.r_A*dim_in)] + ([dim_out]*FLAGS.n_out)
 
         weights_out = []; biases_out = []
 
@@ -274,9 +312,12 @@ class ditou_net(object):
 
         return y, weights_out, weights_pred
 
-    def _build_output_ae(self, h_input, dim_input,  dim_in, dim_out, do_out, FLAGS):
+    def _build_output_ae(self, h_input, dim_input, dim_in, dim_out, do_out, FLAGS):
+        """ build the reconstruction branch """
         h_out = [h_input]
-        dims = [dim_in] + ([dim_out]*FLAGS.n_out)
+        # every layer has same num of nodes dim_in
+        # 200, 200 ...
+        dims = [dim_in] + ([dim_in]*FLAGS.n_out)
 
         weights_out = []; biases_out = []
 
@@ -289,19 +330,20 @@ class ditou_net(object):
             # weights_in.append(tf.Variable(tf.random_normal([dim_in,dim_in], stddev=FLAGS.weight_init/np.sqrt(dim_in))))
             weights_out.append(wo)
 
-            biases_out.append(tf.Variable(tf.zeros([1,dim_out])))
+            biases_out.append(tf.Variable(tf.zeros([1,dim_in])))
             z = tf.matmul(h_out[i], weights_out[i]) + biases_out[i]
             # No batch norm on output because p_cf != p_f
 
             h_out.append(self.nonlin(z))
             h_out[i+1] = tf.nn.dropout(h_out[i+1], do_out)
 
-        weights_pred = self._create_variable(tf.random_normal([dim_out,dim_input],
-            stddev=FLAGS.weight_init/np.sqrt(dim_out)), 'w_pred')
+        # last layer
+        weights_pred = self._create_variable(tf.random_normal([dim_in,dim_input],
+            stddev=FLAGS.weight_init/np.sqrt(dim_input)), 'w_pred')
         bias_pred = self._create_variable(tf.zeros([1,dim_input]), 'b_pred')
 
         if FLAGS.varsel or FLAGS.n_out == 0:
-            self.wd_loss += tf.nn.l2_loss(tf.slice(weights_pred,[0,0],[dim_out-1,1])) #don't penalize treatment coefficient
+            self.wd_loss += tf.nn.l2_loss(tf.slice(weights_pred,[0,0],[dim_input-1,1])) #don't penalize treatment coefficient
         else:
             self.wd_loss += tf.nn.l2_loss(weights_pred)
 
@@ -312,19 +354,25 @@ class ditou_net(object):
         return y, weights_out, weights_pred
 
 
-    def _build_output_graph(self, rep, t, dim_input, dim_in, dim_out, do_out, FLAGS):
+    def _build_output_graph(self, rep, rep_cfr, t, dim_input, dim_in, dim_out, do_out, FLAGS):
         ''' Construct output/regression layers '''
 
         if FLAGS.split_output:
             # use branching network
+            # rep: [subject, features]
+            # Example:
+            #   dim_input: 25
+            #   dim_in: 100
+            #   dim_out: 200
             i0 = tf.to_int32(tf.where(t < 1)[:,0])
             i1 = tf.to_int32(tf.where(t > 0)[:,0])
 
-            rep0 = tf.gather(rep, i0)
-            rep1 = tf.gather(rep, i1)
+            rep0 = tf.gather(rep_cfr, i0)
+            rep1 = tf.gather(rep_cfr, i1)
 
             y0, weights_out0, weights_pred0 = self._build_output(rep0, dim_in, dim_out, do_out, FLAGS)
             y1, weights_out1, weights_pred1 = self._build_output(rep1, dim_in, dim_out, do_out, FLAGS)
+            # build the branch for reconstruction
             x_pred, weights_out2, weights_pred2 = self._build_output_ae(rep, dim_input, dim_in, dim_out, do_out, FLAGS)
 
             y = tf.dynamic_stitch([i0, i1], [y0, y1])

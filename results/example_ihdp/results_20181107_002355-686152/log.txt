@@ -1,9 +1,0 @@
-Training with hyperparameters: alpha=0, lambda=0.0001
-Training data: data/ihdp_npci_1-100.train.npz
-Test data:     data/ihdp_npci_1-100.test.npz
-Loaded data with shape [672,25]
-Defining graph...
-
-Training on experiment 1/100...
-0	Obj: 25.261,	F: 3.934,	Cf: 6.006,	Imb: 0.26,	Val: 3.624,	ValImb: 0.27,	ValObj: 22.08
-100	Obj: 0.901,	F: 1.030,	Cf: 1.087,	Imb: 0.085,	Val: 1.141,	ValImb: 0.06,	ValObj: 1.53

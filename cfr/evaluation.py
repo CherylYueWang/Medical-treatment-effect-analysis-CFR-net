@@ -92,6 +92,14 @@ def pdist2(X,Y):
     return np.sqrt(D + 1e-8)
 
 def cf_nn(x, t):
+    """ Find the nearest neighbors
+
+        x: [subject, features, experiments] 
+    Returns:
+        nn_t: the indices in the control group that was nearest neighbor of the
+        treatment group
+        nn_c: indices in the treatment group of the NN of control group
+    """
     It = np.array(np.where(t==1))[0,:]
     Ic = np.array(np.where(t==0))[0,:]
 
@@ -106,6 +114,7 @@ def cf_nn(x, t):
     return nn_t, nn_c
 
 def pehe_nn(yf_p, ycf_p, y, x, t, nn_t=None, nn_c=None):
+    """ Compute the pehe with the surrogate for the ycf """
     if nn_t is None or nn_c is None:
         nn_t, nn_c = cf_nn(x,t)
 
@@ -113,21 +122,22 @@ def pehe_nn(yf_p, ycf_p, y, x, t, nn_t=None, nn_c=None):
     Ic = np.array(np.where(t==0))[0,:]
 
     ycf_t = 1.0*y[nn_t]
-    eff_nn_t = ycf_t - 1.0*y[It]
-    eff_pred_t = ycf_p[It] - yf_p[It]
+    eff_nn_t = ycf_t - 1.0*y[It] # (y0-y1)^gt
+    eff_pred_t = ycf_p[It] - yf_p[It] # (y0-y1)^pred
 
-    eff_pred = eff_pred_t
-    eff_nn = eff_nn_t
+    #eff_pred = eff_pred_t
+    #eff_nn = eff_nn_t
 
-    '''
+    # why was this section commented out? slow? probably incorrect before
+    #'''
     ycf_c = 1.0*y[nn_c]
-    eff_nn_c = ycf_c - 1.0*y[Ic]
-    eff_pred_c = ycf_p[Ic] - yf_p[Ic]
+    eff_nn_c = ycf_c - 1.0*y[Ic] # (y1-y0)
+    eff_pred_c = ycf_p[Ic] - yf_p[Ic] # (y1-y0)^pred
 
-    eff_pred = np.vstack((eff_pred_t, eff_pred_c))
-    eff_nn = np.vstack((eff_nn_t, eff_nn_c))
-    '''
-
+    eff_pred = np.vstack((-eff_pred_t.reshape(-1,1), eff_pred_c.reshape(-1,1)))
+    eff_nn = np.vstack((-eff_nn_t.reshape(-1,1), eff_nn_c.reshape(-1,1)))
+    #'''
+    #import pdb;pdb.set_trace()
     pehe_nn = np.sqrt(np.mean(np.square(eff_pred - eff_nn)))
 
     return pehe_nn
@@ -332,6 +342,7 @@ def evaluate(output_dir, data_path_train, data_path_test=None, binary=False):
         raise Exception('No finished results found.')
 
     # Separate configuration files
+    #import pdb;pdb.set_trace()
     configs = [r['config'] for r in results]
 
     # Test whether multiple experiments (different data)

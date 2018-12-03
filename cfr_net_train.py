@@ -17,6 +17,9 @@ tf.app.flags.DEFINE_integer('n_in', 2, """Number of representation layers. """)
 tf.app.flags.DEFINE_integer('n_out', 2, """Number of regression layers. """)
 tf.app.flags.DEFINE_float('p_alpha', 1e-4, """Imbalance regularization param. """)
 tf.app.flags.DEFINE_float('p_lambda', 0.0, """Weight decay regularization parameter. """)
+tf.app.flags.DEFINE_float('p_recons', 0.0, """Reconstruction loss parameter. """)
+tf.app.flags.DEFINE_float('p_xcov', 0.0, """Cross covariance loss parameter. """)
+tf.app.flags.DEFINE_float('r_A', 0.5, """ Ratio of nodes AD in the internal representation. """)
 tf.app.flags.DEFINE_integer('rep_weight_decay', 1, """Whether to penalize representation layers with weight decay""")
 tf.app.flags.DEFINE_float('dropout_in', 0.9, """Input layers dropout keep rate. """)
 tf.app.flags.DEFINE_float('dropout_out', 0.9, """Output layers dropout keep rate. """)
@@ -84,11 +87,13 @@ def train(CFR, sess, train_step, D, I_valid, D_test, logfile, i_exp):
       CFR.r_lambda: FLAGS.p_lambda, CFR.p_t: p_treated}
 
     if FLAGS.val_part > 0:
+        # ratio of validation set
         dict_valid = {CFR.x: D['x'][I_valid,:], CFR.t: D['t'][I_valid,:], CFR.y_: D['yf'][I_valid,:], \
           CFR.do_in: 1.0, CFR.do_out: 1.0, CFR.r_alpha: FLAGS.p_alpha, \
           CFR.r_lambda: FLAGS.p_lambda, CFR.p_t: p_treated}
 
     if D['HAVE_TRUTH']:
+        # have ycf
         dict_cfactual = {CFR.x: D['x'][I_train,:], CFR.t: 1-D['t'][I_train,:], CFR.y_: D['ycf'][I_train,:], \
           CFR.do_in: 1.0, CFR.do_out: 1.0}
 
@@ -146,8 +151,12 @@ def train(CFR, sess, train_step, D, I_valid, D_test, logfile, i_exp):
 
         ''' Compute loss every N iterations '''
         if i % FLAGS.output_delay == 0 or i==FLAGS.iterations-1:
-            obj_loss,f_error,imb_err = sess.run([CFR.tot_loss, CFR.pred_loss, CFR.imb_dist],
-                feed_dict=dict_factual)
+            if FLAGS.use_ditou_net:
+                obj_loss,f_error,imb_err,recons_loss, xcov_loss = sess.run([CFR.tot_loss, CFR.pred_loss,
+                    CFR.imb_dist, CFR.recons_loss, CFR.xcov_loss], feed_dict=dict_factual)
+            else:
+                obj_loss,f_error,imb_err = sess.run([CFR.tot_loss, CFR.pred_loss,
+                    CFR.imb_dist], feed_dict=dict_factual)
 
             rep = sess.run(CFR.h_rep_norm, feed_dict={CFR.x: D['x'], CFR.do_in: 1.0})
             rep_norm = np.mean(np.sqrt(np.sum(np.square(rep), 1)))
@@ -157,8 +166,15 @@ def train(CFR, sess, train_step, D, I_valid, D_test, logfile, i_exp):
                 cf_error = sess.run(CFR.pred_loss, feed_dict=dict_cfactual)
 
             valid_obj = np.nan; valid_imb = np.nan; valid_f_error = np.nan;
+            valid_recons_loss = np.nan; valid_xcov_loss = np.nan;
             if FLAGS.val_part > 0:
-                valid_obj, valid_f_error, valid_imb = sess.run([CFR.tot_loss, CFR.pred_loss, CFR.imb_dist], feed_dict=dict_valid)
+                if FLAGS.use_ditou_net:
+                    valid_obj, valid_f_error, valid_imb, valid_recons_loss,valid_xcov_loss = sess.run([CFR.tot_loss, CFR.pred_loss,
+                        CFR.imb_dist, CFR.recons_loss, CFR.xcov_loss], feed_dict=dict_valid)
+                else:
+                    valid_obj, valid_f_error, valid_imb = sess.run([CFR.tot_loss, CFR.pred_loss,
+                        CFR.imb_dist], feed_dict=dict_valid)
+
 
             losses.append([obj_loss, f_error, cf_error, imb_err, valid_f_error, valid_imb, valid_obj])
             loss_str = str(i) + '\tObj: %.3f,\tF: %.3f,\tCf: %.3f,\tImb: %.2g,\tVal: %.3f,\tValImb: %.2g,\tValObj: %.2f' \
@@ -170,6 +186,10 @@ def train(CFR, sess, train_step, D, I_valid, D_test, logfile, i_exp):
                 y_pred = 1.0*(y_pred > 0.5)
                 acc = 100*(1 - np.mean(np.abs(y_batch - y_pred)))
                 loss_str += ',\tAcc: %.2f%%' % acc
+
+            if FLAGS.use_ditou_net:
+                # only log these two losses when it's ditou net
+                log(logfile, 'Iteration(%d): train_recons_loss = %.3f, valid_recons_loss = %.3f, train_xcov_loss = %.3f, valid_xcov_loss = %.3f' % (i,recons_loss, valid_recons_loss, xcov_loss, valid_xcov_loss))
 
             log(logfile, loss_str)
 
@@ -252,7 +272,7 @@ def run(outdir):
     log(logfile,     'Training data: ' + datapath)
     if has_test:
         log(logfile, 'Test data:     ' + datapath_test)
-    #import pdb;pdb.set_trace()
+
     D = load_data(datapath)
     D_test = None
     if has_test:
@@ -262,7 +282,6 @@ def run(outdir):
 
     ''' Start Session '''
     #sess = tf.Session()
-    
     # the following is for gpu
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
@@ -343,6 +362,7 @@ def run(outdir):
             D_exp_test = None
             if npz_input:
                 D_exp = {}
+                # dim of x [subject, feature, experiments]
                 D_exp['x']  = D['x'][:,:,i_exp-1]
                 D_exp['t']  = D['t'][:,i_exp-1:i_exp]
                 D_exp['yf'] = D['yf'][:,i_exp-1:i_exp]
@@ -373,6 +393,7 @@ def run(outdir):
 
         ''' Split into training and validation sets '''
         # I_ are indices
+        # shuffle for each experiment
         I_train, I_valid = validation_split(D_exp, FLAGS.val_part)
 
         ''' Run training loop '''

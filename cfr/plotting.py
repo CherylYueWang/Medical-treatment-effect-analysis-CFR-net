@@ -89,6 +89,10 @@ def table_str_bin(result_set, row_labels, labels_long=None, binary=False):
 
     for i in range(len(result_set)):
         vals = [np.mean(np.abs(result_set[i][c])) for c in cols] # @TODO: np.abs just to make err not bias. change!
+        for c in cols:
+            print 'The result of %s' %c
+            #import pdb;pdb.set_trace()
+            print result_set[i][c]
         stds = [np.std(result_set[i][c])/np.sqrt(result_set[i][c].shape[0]) for c in cols]
         val_pad = [r1pad(row_labels[i])] + [rpad('%.3f +/- %.3f ' % (vals[j], stds[j])) for j in range(len(vals))]
         val_str = '| '.join(val_pad)
@@ -144,6 +148,7 @@ def select_parameters(results, configs, stop_set, stop_criterion, choice_set, ch
     ''' Select configuration '''
     results_all = [dict([(k1, dict([(k2, v[i,]) for k2,v in results_sel[k1].iteritems()]))
                         for k1 in results_sel.keys()]) for i in range(len(configs))]
+    #import pdb;pdb.set_trace()
 
     labels = ['%d' % i for i in range(len(configs))]
 
@@ -211,6 +216,7 @@ def plot_option_correlation(output_dir, diff_opts, results, configs,
         plt.close()
 
 def plot_evaluation_cont(results, configs, output_dir, data_train_path, data_test_path, filters=None):
+    ''' evaluation of continuous case '''
 
     data_train = load_data(data_train_path)
     data_test = load_data(data_test_path)
