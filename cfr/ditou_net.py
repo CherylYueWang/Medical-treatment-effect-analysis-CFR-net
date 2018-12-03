@@ -237,14 +237,14 @@ class ditou_net(object):
             cfr_rep_new = tf.transpose(cfr_rep, [1, 0])
             # mean of BC and AD
             # dims = [100, 1]
-            mean_BC = tf.reduce_mean(bias_rep_new, axis=1, keepdims=True)
-            mean_AD = tf.reduce_mean(cfr_rep_new, axis=1, keepdims=True)
+            mean_AD = tf.reduce_mean(bias_rep_new, axis=1, keepdims=True)
+            mean_BC = tf.reduce_mean(cfr_rep_new, axis=1, keepdims=True)
             # shape=[100, N]
             bias_rep_zero_mean = bias_rep_new - mean_AD # broadcasting
             cfr_rep_zero_mean = cfr_rep_new - mean_BC
             # the following is an attempt at a faster implementation of xcov
-            xcov_err = 0.5 *tf.reduce_sum(tf.square(tf.diag_part(tf.matmul(bias_rep_zero_mean,
-                tf.transpose(cfr_rep_zero_mean)))))
+            xcov_err = 0.5 *tf.reduce_sum(tf.square(tf.matmul(bias_rep_zero_mean,
+                tf.transpose(cfr_rep_zero_mean))))
             tot_error = tot_error + FLAGS.p_xcov * xcov_err
         else:
             xcov_err = tf.constant(0, dtype=tf.float32)
