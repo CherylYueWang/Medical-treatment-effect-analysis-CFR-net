@@ -255,6 +255,7 @@ def run(outdir):
     save_config(outdir+'config.txt')
 
     log(logfile, 'Training with hyperparameters: alpha=%.2g, lambda=%.2g' % (FLAGS.p_alpha,FLAGS.p_lambda))
+    log(logfile, '%s' % FLAGS.flag_values_dict())
 
     ''' Load Data '''
     npz_input = False
