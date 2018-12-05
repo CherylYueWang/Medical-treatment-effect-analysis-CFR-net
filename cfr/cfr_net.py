@@ -101,7 +101,11 @@ class cfr_net(object):
                     weights_in.append(tf.Variable(1.0/dim_input*tf.ones([dim_input])))
                 else:
                     weights_in.append(tf.Variable(tf.random_normal([dim_input, dim_in], stddev=FLAGS.weight_init/np.sqrt(dim_input))))
+            elif i==FLAGS.n_in-1:
+                # feature layer
+                weights_in.append(tf.Variable(tf.random_normal([dim_in,FLAGS.dim_feat], stddev=FLAGS.weight_init/np.sqrt(dim_in))))
             else:
+                # other layers
                 weights_in.append(tf.Variable(tf.random_normal([dim_in,dim_in], stddev=FLAGS.weight_init/np.sqrt(dim_in))))
 
             ''' If using variable selection, first layer is just rescaling'''
@@ -109,7 +113,10 @@ class cfr_net(object):
                 biases_in.append([])
                 h_in.append(tf.mul(h_in[i],weights_in[i]))
             else:
-                biases_in.append(tf.Variable(tf.zeros([1,dim_in])))
+                if i==FLAGS.n_in-1:
+                    biases_in.append(tf.Variable(tf.zeros([1,FLAGS.dim_feat])))
+                else:
+                    biases_in.append(tf.Variable(tf.zeros([1,dim_in])))
                 z = tf.matmul(h_in[i], weights_in[i]) + biases_in[i]
 
                 if FLAGS.batch_norm:
@@ -273,8 +280,10 @@ class cfr_net(object):
             rep0 = tf.gather(rep, i0)
             rep1 = tf.gather(rep, i1)
 
-            y0, weights_out0, weights_pred0 = self._build_output(rep0, dim_in, dim_out, do_out, FLAGS)
-            y1, weights_out1, weights_pred1 = self._build_output(rep1, dim_in, dim_out, do_out, FLAGS)
+            #y0, weights_out0, weights_pred0 = self._build_output(rep0, dim_in, dim_out, do_out, FLAGS)
+            #y1, weights_out1, weights_pred1 = self._build_output(rep1, dim_in, dim_out, do_out, FLAGS)
+            y0, weights_out0, weights_pred0 = self._build_output(rep0, FLAGS.dim_feat, dim_out, do_out, FLAGS)
+            y1, weights_out1, weights_pred1 = self._build_output(rep1, FLAGS.dim_feat, dim_out, do_out, FLAGS)
 
             y = tf.dynamic_stitch([i0, i1], [y0, y1])
             weights_out = weights_out0 + weights_out1

@@ -60,6 +60,7 @@ tf.app.flags.DEFINE_boolean('split_output', 0, """Whether to split output layers
 tf.app.flags.DEFINE_boolean('reweight_sample', 1, """Whether to reweight sample for prediction loss with average treatment probability. """)
 # added for DITOU
 tf.app.flags.DEFINE_boolean('use_ditou_net', 0, """Whether to use ditou net. """)
+tf.app.flags.DEFINE_integer('dim_feat', 200, """representation layer dimensions. """)
 
 if FLAGS.sparse:
     import scipy.sparse as sparse
