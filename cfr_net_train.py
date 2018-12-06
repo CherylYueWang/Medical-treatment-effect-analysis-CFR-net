@@ -61,6 +61,7 @@ tf.app.flags.DEFINE_boolean('reweight_sample', 1, """Whether to reweight sample 
 # added for DITOU
 tf.app.flags.DEFINE_boolean('use_ditou_net', 0, """Whether to use ditou net. """)
 tf.app.flags.DEFINE_integer('dim_feat', 200, """representation layer dimensions. """)
+tf.app.flags.DEFINE_boolean('imb_B', 0, """Whether to apply IPM on B only """)
 
 if FLAGS.sparse:
     import scipy.sparse as sparse

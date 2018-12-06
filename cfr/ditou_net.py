@@ -101,7 +101,11 @@ class ditou_net(object):
                     weights_in.append(tf.Variable(1.0/dim_input*tf.ones([dim_input])))
                 else:
                     weights_in.append(tf.Variable(tf.random_normal([dim_input, dim_in], stddev=FLAGS.weight_init/np.sqrt(dim_input))))
+            elif i==FLAGS.n_in-1:
+                # feature layer
+                weights_in.append(tf.Variable(tf.random_normal([dim_in,FLAGS.dim_feat], stddev=FLAGS.weight_init/np.sqrt(dim_in))))
             else:
+                # other layers
                 weights_in.append(tf.Variable(tf.random_normal([dim_in,dim_in], stddev=FLAGS.weight_init/np.sqrt(dim_in))))
 
             ''' If using variable selection, first layer is just rescaling'''
@@ -109,7 +113,10 @@ class ditou_net(object):
                 biases_in.append([])
                 h_in.append(tf.mul(h_in[i],weights_in[i]))
             else:
-                biases_in.append(tf.Variable(tf.zeros([1,dim_in])))
+                if i==FLAGS.n_in-1:
+                    biases_in.append(tf.Variable(tf.zeros([1,FLAGS.dim_feat])))
+                else:
+                    biases_in.append(tf.Variable(tf.zeros([1,dim_in])))
                 z = tf.matmul(h_in[i], weights_in[i]) + biases_in[i]
 
                 if FLAGS.batch_norm:
@@ -136,10 +143,12 @@ class ditou_net(object):
         ''' split the internal layer to AD and BC '''
         # h_rep dims [batch, features]
         # AD
-        dims_AD = int(FLAGS.r_A*dim_in)
+        #dims_AD = int(FLAGS.r_A*dim_in)
+        dims_AD = int(FLAGS.r_A* FLAGS.dim_feat)
         bias_rep = tf.gather(h_rep_norm, tf.range(dims_AD), axis=1)
         # BC
-        cfr_rep = tf.gather(h_rep_norm, tf.range(dims_AD, dim_in), axis=1)
+        #cfr_rep = tf.gather(h_rep_norm, tf.range(dims_AD, dim_in), axis=1)
+        cfr_rep = tf.gather(h_rep_norm, tf.range(dims_AD, FLAGS.dim_feat), axis=1)
 
         ''' Construct ouput layers '''
         y, weights_out, weights_pred, x_pred, weights_out2, weights_pred2 = self._build_output_graph(h_rep_norm, cfr_rep, t, dim_input, dim_in, dim_out, do_out, FLAGS)
@@ -198,7 +207,10 @@ class ditou_net(object):
             # why not
             # imb_error = r_alpha * safe_sqrt(imb_dist)
         elif FLAGS.imb_fun == 'wass':
-            imb_dist, imb_mat = wasserstein(h_rep_norm,t,p_ipm,lam=FLAGS.wass_lambda,its=FLAGS.wass_iterations,sq=False,backpropT=FLAGS.wass_bpt)
+            if FLAGS.imb_B:
+                imb_dist, imb_mat = wasserstein(cfr_rep,t,p_ipm,lam=FLAGS.wass_lambda,its=FLAGS.wass_iterations,sq=False,backpropT=FLAGS.wass_bpt)
+            else:
+                imb_dist, imb_mat = wasserstein(h_rep_norm,t,p_ipm,lam=FLAGS.wass_lambda,its=FLAGS.wass_iterations,sq=False,backpropT=FLAGS.wass_bpt)
             imb_error = r_alpha * imb_dist
             self.imb_mat = imb_mat # FOR DEBUG
         elif FLAGS.imb_fun == 'wass2':
@@ -257,7 +269,6 @@ class ditou_net(object):
         # a[0], feature_AD_1 of all examples
         #fn = lambda a:1./N * tf.matmul(tf.reshape(a[0],[1,-1]),tf.reshape(a[1],[-1,1]))
         #res = tf.map_fn(fn, elems, dtype=tf.float32)
-        #import pdb;pdb.set_trace()
         #xcov_err = 0.5 * tf.reduce_sum(tf.square(tf.map_fn(fn,elems,dtype=tf.float32, parallel_iterations=10)))
         #################
 
@@ -318,7 +329,7 @@ class ditou_net(object):
         h_out = [h_input]
         # every layer has same num of nodes dim_in
         # 200, 200 ...
-        dims = [dim_in] + ([dim_in]*FLAGS.n_out)
+        dims = [FLAGS.dim_feat] + ([dim_in]*FLAGS.n_out)
 
         weights_out = []; biases_out = []
 
@@ -371,8 +382,10 @@ class ditou_net(object):
             rep0 = tf.gather(rep_cfr, i0)
             rep1 = tf.gather(rep_cfr, i1)
 
-            y0, weights_out0, weights_pred0 = self._build_output(rep0, dim_in, dim_out, do_out, FLAGS)
-            y1, weights_out1, weights_pred1 = self._build_output(rep1, dim_in, dim_out, do_out, FLAGS)
+            #y0, weights_out0, weights_pred0 = self._build_output(rep0, dim_in, dim_out, do_out, FLAGS)
+            #y1, weights_out1, weights_pred1 = self._build_output(rep1, dim_in, dim_out, do_out, FLAGS)
+            y0, weights_out0, weights_pred0 = self._build_output(rep0, FLAGS.dim_feat, dim_out, do_out, FLAGS)
+            y1, weights_out1, weights_pred1 = self._build_output(rep1, FLAGS.dim_feat, dim_out, do_out, FLAGS)
             # build the branch for reconstruction
             x_pred, weights_out2, weights_pred2 = self._build_output_ae(rep, dim_input, dim_in, dim_out, do_out, FLAGS)
 
