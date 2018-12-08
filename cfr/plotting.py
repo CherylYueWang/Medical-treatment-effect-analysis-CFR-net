@@ -87,6 +87,7 @@ def table_str_bin(result_set, row_labels, labels_long=None, binary=False):
     head_str = '| '.join(head_pad)
     s = head_str + '\n' + '-'*len(head_str) + '\n'
 
+    #import pdb;pdb.set_trace()
     for i in range(len(result_set)):
         vals = [np.mean(np.abs(result_set[i][c])) for c in cols] # @TODO: np.abs just to make err not bias. change!
         for c in cols:
@@ -148,11 +149,12 @@ def select_parameters(results, configs, stop_set, stop_criterion, choice_set, ch
     ''' Select configuration '''
     results_all = [dict([(k1, dict([(k2, v[i,]) for k2,v in results_sel[k1].iteritems()]))
                         for k1 in results_sel.keys()]) for i in range(len(configs))]
-    #import pdb;pdb.set_trace()
 
     labels = ['%d' % i for i in range(len(configs))]
 
+    # it's takinng the mean of all exps
     sort_key = np.argsort([np.mean(r[choice_set][choice_criterion]) for r in results_all])
+    #import pdb;pdb.set_trace()
     results_all = [results_all[i] for i in sort_key]
     configs_all = [configs[i] for i in sort_key]
     labels = [labels[i] for i in sort_key]
