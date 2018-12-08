@@ -292,7 +292,8 @@ def evaluate_result(result, data, validation=False,
         I_valid = result['val']
 
     n_units, _, n_rep, n_outputs = predictions.shape
-
+    #(1000, 2, 100, 51): patients, _, exp, configs
+    #import pdb;pdb.set_trace()
     #@TODO: Should depend on parameter
     compute_policy_curve = True
 
@@ -350,6 +351,8 @@ def evaluate_result(result, data, validation=False,
     if 'loss' in result.keys() and result['loss'].shape[1]>=6:
         losses = result['loss']
         n_loss_outputs = losses.shape[0]
+        #(102, 7, 100)
+        #import pdb;pdb.set_trace()
 
         if validation:
             objective = np.array([losses[(n_loss_outputs*i)/n_outputs,6,:] for i in range(n_outputs)]).T
@@ -428,6 +431,8 @@ def evaluate(output_dir, data_path_train, data_path_test=None, binary=False):
     # Reformat into dict
     eval_dict = {'train': {}, 'test': {}, 'valid': {}}
     keys = eval_results[0]['train'].keys()
+    #import pdb;pdb.set_trace()
+    #pehe shape (100, 51)
     for k in keys:
         v = np.array([eval_results[i]['train'][k] for i in range(len(eval_results))])
         eval_dict['train'][k] = v
