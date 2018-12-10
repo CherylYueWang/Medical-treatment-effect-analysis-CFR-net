@@ -3,11 +3,11 @@
 #
 
 mkdir results
-mkdir results/ditou_syn_iter5e3
+mkdir results/ditou_syn_1
 
 #export CUDA_VISIBLE_DEVICES=0
 
 # run the param search for 20 iterations.
-python cfr_param_search.py configs/ditou_syn.txt 20
+python cfr_param_search.py configs/ditou_syn_1.txt 1000
 
-python evaluate.py configs/ditou_syn.txt 1
+python evaluate.py configs/ditou_syn_1.txt 1
